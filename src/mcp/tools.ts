@@ -192,7 +192,7 @@ export function createShopifyMcpServer(): Server {
             product_id: { type: 'number', description: 'Shopify product ID' },
             metafields: {
               type: 'array',
-              description: 'Array of metafield objects. Each needs: namespace (e.g. "custom"), key (e.g. "fragrance_notes"), value, type (e.g. "single_line_text_field", "multi_line_text_field", "number_integer", "boolean", "list.single_line_text_field").',
+              description: 'Array of metafield objects. Each needs: namespace (e.g. "custom"), key (e.g. "fragrance_notes"), value, type. Common types: "single_line_text_field", "multi_line_text_field", "number_integer", "boolean", "string", "json". For list types (e.g. "list.single_line_text_field"), value must be a JSON-encoded array string: "[\"item1\",\"item2\"]".',
               items: {
                 type: 'object',
                 properties: {
