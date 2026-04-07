@@ -1,0 +1,31 @@
+{
+  "commands": {
+    "enabled": [
+      "analyze_orders",
+      "analyze_inventory",
+      "generate_product_descriptions",
+      "suggest_remarketing",
+      "suggest_discounts",
+      "sync_meta_catalog",
+      "update_theme"
+    ],
+    "remarketing": {
+      "enabled": true,
+      "triggers": [
+        "order_created",
+        "cart_abandoned",
+        "checkout_created",
+        "low_stock"
+      ]
+    },
+    "claude": {
+      "autoAnalyzeOrders": true,
+      "autoAnalyzeInventory": false
+    }
+  },
+  "meta": {
+    "pixelId": "",
+    "accessToken": "",
+    "catalogId": ""
+  }
+}

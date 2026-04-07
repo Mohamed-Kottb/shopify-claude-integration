@@ -1,0 +1,27 @@
+{
+  "name": "claude-shopify-meta",
+  "version": "1.0.0",
+  "description": "Shopify multi-store management system with Claude Code analysis",
+  "main": "dist/index.js",
+  "scripts": {
+    "fetch": "ts-node src/cli/fetch.ts",
+    "webhook": "nodemon --exec ts-node src/webhooks/server.ts",
+    "build": "tsc",
+    "start": "node dist/webhooks/server.js",
+    "stores:list": "ts-node -e \"const {listStores}=require('./src/core/storeLoader');console.log(listStores())\"",
+    "install:store": "ts-node src/auth/generate-link.ts",
+    "upload": "ts-node src/cli/upload.ts"
+  },
+  "dependencies": {
+    "@shopify/shopify-api": "^11.0.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0"
+  }
+}

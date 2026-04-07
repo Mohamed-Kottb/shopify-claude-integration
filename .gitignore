@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.js.map
+.DS_Store
+**/.DS_Store
+
+# Ignore all real store folders — only store-template is committed
+stores/*/
+!stores/store-template/
+!stores/store-template/**
