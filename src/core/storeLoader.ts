@@ -17,11 +17,9 @@ export function loadStore(storeName: string): StoreConfig {
   dotenv.config({ path: path.join(storePath, '.env') });
 
   const configPath = path.join(storePath, 'config.json');
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`config.json missing for store "${storeName}"`);
-  }
-
-  const fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Partial<StoreConfig>;
+  const fileConfig: Partial<StoreConfig> = fs.existsSync(configPath)
+    ? (JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Partial<StoreConfig>)
+    : {};
 
   const storeUrl = process.env.SHOPIFY_STORE_URL;
   const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
