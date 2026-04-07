@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Request, Response } from 'express';
 import { logger } from '../core/logger';
+import { registerWebhooks } from '../shopify/webhooks';
+import { loadStore } from '../core/storeLoader';
 
 const STORES_DIR = process.env.STORES_DIR ?? path.join(process.cwd(), 'stores');
 const SCOPES = [
@@ -146,6 +148,17 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
 
   const { access_token } = await tokenResponse.json() as { access_token: string };
   saveStoreCredentials(shop, access_token);
+
+  // Auto-register webhooks pointing to this server
+  try {
+    const storeName = shop.replace('.myshopify.com', '');
+    const storeConfig = loadStore(storeName);
+    const callbackBase = process.env.WEBHOOK_CALLBACK_URL ?? '';
+    const registered = await registerWebhooks(storeConfig, callbackBase);
+    logger.success(`Registered ${registered.length} webhooks for ${storeName}`);
+  } catch (err) {
+    logger.error('Webhook registration failed (store still connected)', err);
+  }
 
   res.send(`
     <html><body style="font-family:sans-serif;text-align:center;padding:60px">
