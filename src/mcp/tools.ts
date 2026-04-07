@@ -20,6 +20,7 @@ import { getCollections, getCollectionProducts, createCollection } from '../shop
 import { getPriceRules, createDiscount } from '../shopify/discounts';
 import { getLocations, getInventoryLevels, setInventoryLevel } from '../shopify/inventory';
 import { cancelOrder, fulfillOrder, getRefunds } from '../shopify/fulfillments';
+import { getProductMetafields, setProductMetafields } from '../shopify/metafields';
 
 export function createShopifyMcpServer(): Server {
   const server = new Server(
@@ -123,7 +124,7 @@ export function createShopifyMcpServer(): Server {
       },
       {
         name: 'create_product',
-        description: 'Create a new product with full details. Status defaults to draft.',
+        description: 'Create a new product with full details including metafields. Status defaults to draft.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -136,12 +137,17 @@ export function createShopifyMcpServer(): Server {
             status: { type: 'string', enum: ['active', 'draft', 'archived'], description: 'Status (default: draft)' },
             variants: {
               type: 'array',
-              description: 'Variants array. Each variant can have price, sku, inventory_quantity, etc.',
+              description: 'Variants array. Each: { price, sku, inventory_quantity, compare_at_price, option1, option2, option3 }',
               items: { type: 'object' },
             },
             images: {
               type: 'array',
-              description: 'Images array with src URLs. e.g. [{ "src": "https://..." }]',
+              description: 'Images array. e.g. [{ "src": "https://...", "alt": "..." }]',
+              items: { type: 'object' },
+            },
+            metafields: {
+              type: 'array',
+              description: 'Metafields to set on creation. Each: { namespace, key, value, type }. type examples: single_line_text_field, multi_line_text_field, number_integer, boolean.',
               items: { type: 'object' },
             },
           },
@@ -160,6 +166,46 @@ export function createShopifyMcpServer(): Server {
             alt: { type: 'string', description: 'Alt text (optional)' },
           },
           required: ['store', 'product_id', 'src'],
+        },
+      },
+
+      // ── Metafields ─────────────────────────────────────────────────────────
+      {
+        name: 'get_product_metafields',
+        description: 'Get all metafields for a product',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            store: { type: 'string', description: 'Store name' },
+            product_id: { type: 'number', description: 'Shopify product ID' },
+          },
+          required: ['store', 'product_id'],
+        },
+      },
+      {
+        name: 'set_product_metafields',
+        description: 'Create or update metafields on a product. Creates new ones, updates existing ones by namespace+key.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            store: { type: 'string', description: 'Store name' },
+            product_id: { type: 'number', description: 'Shopify product ID' },
+            metafields: {
+              type: 'array',
+              description: 'Array of metafield objects. Each needs: namespace (e.g. "custom"), key (e.g. "fragrance_notes"), value, type (e.g. "single_line_text_field", "multi_line_text_field", "number_integer", "boolean", "list.single_line_text_field").',
+              items: {
+                type: 'object',
+                properties: {
+                  namespace: { type: 'string' },
+                  key: { type: 'string' },
+                  value: { type: 'string' },
+                  type: { type: 'string' },
+                },
+                required: ['namespace', 'key', 'value', 'type'],
+              },
+            },
+          },
+          required: ['store', 'product_id', 'metafields'],
         },
       },
       {
@@ -446,6 +492,7 @@ export function createShopifyMcpServer(): Server {
             status: (args['status'] as string | undefined) ?? 'draft',
             variants: args['variants'] as ShopifyVariant[] | undefined,
             images: args['images'] as ShopifyImage[] | undefined,
+            metafields: args['metafields'] as Array<{ namespace: string; key: string; value: string; type: string }> | undefined,
           });
           return text(`Product created: ${product.title} (ID: ${product.id}) — status: ${product.status}`);
         }
@@ -460,6 +507,23 @@ export function createShopifyMcpServer(): Server {
           });
           const img = (response.body as { image: { id: number; src: string } }).image;
           return text(`Image added to product ${num(args, 'product_id')} — image ID: ${img.id}\n${img.src}`);
+        }
+
+        // ── Metafields ───────────────────────────────────────────────────────
+        case 'get_product_metafields': {
+          const config = loadStore(str(args, 'store'));
+          const metafields = await getProductMetafields(config, num(args, 'product_id'));
+          return text(`${metafields.length} metafield(s)\n\n${JSON.stringify(metafields, null, 2)}`);
+        }
+        case 'set_product_metafields': {
+          const config = loadStore(str(args, 'store'));
+          const mfs = args['metafields'] as Array<{ namespace: string; key: string; value: string; type: string }>;
+          if (!Array.isArray(mfs) || mfs.length === 0) throw new Error('metafields must be a non-empty array');
+          const results = await setProductMetafields(config, num(args, 'product_id'), mfs);
+          return text(
+            `Set ${results.length} metafield(s) on product ${num(args, 'product_id')}:\n` +
+            results.map(m => `  • ${m.namespace}.${m.key} = "${m.value}" (${m.type})`).join('\n')
+          );
         }
         case 'bulk_create_products': {
           const config = loadStore(str(args, 'store'));

@@ -31,6 +31,18 @@ export interface MetaConfig {
   catalogId?: string;
 }
 
+export interface ShopifyMetafield {
+  id?: number;
+  namespace: string;
+  key: string;
+  value: string;
+  type: string;
+  owner_id?: number;
+  owner_resource?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ShopifyProduct {
   id: number;
   title: string;
@@ -41,6 +53,7 @@ export interface ShopifyProduct {
   tags: string;
   variants: ShopifyVariant[];
   images: ShopifyImage[];
+  metafields?: ShopifyMetafield[];
 }
 
 export interface ShopifyVariant {
