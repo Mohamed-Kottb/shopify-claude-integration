@@ -22,6 +22,9 @@ dotenv.config();
 
 const app = express();
 
+// MCP session store — keyed by session ID assigned on initialize
+const mcpTransports: Record<string, StreamableHTTPServerTransport> = {};
+
 // OAuth routes — must be before express.raw()
 app.get('/auth/install', handleInstall);
 app.get('/auth/callback', (req, res) => { void handleCallback(req, res); });
@@ -31,12 +34,31 @@ app.get('/auth/callback', (req, res) => { void handleCallback(req, res); });
 app.post('/mcp', express.json(), async (req: Request, res: Response): Promise<void> => {
   if (!requireAdminKey(req, res)) return;
   try {
-    const server = createShopifyMcpServer();
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+    if (sessionId && mcpTransports[sessionId]) {
+      // Existing session — reuse transport
+      await mcpTransports[sessionId].handleRequest(req, res, req.body as Record<string, unknown>);
+      return;
+    }
+
+    // New session — only allow initialize as the first message
+    const body = req.body as Record<string, unknown>;
+    if (body?.['method'] !== 'initialize') {
+      res.status(400).json({ jsonrpc: '2.0', error: { code: -32000, message: 'No valid session. Send initialize first.' }, id: null });
+      return;
+    }
+
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (id) => { mcpTransports[id] = transport; },
     });
+    transport.onclose = () => {
+      if (transport.sessionId) delete mcpTransports[transport.sessionId];
+    };
+    const server = createShopifyMcpServer();
     await server.connect(transport);
-    await transport.handleRequest(req, res, req.body as Record<string, unknown>);
+    await transport.handleRequest(req, res, body);
   } catch (err) {
     logger.error('MCP HTTP error', err);
     if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
@@ -46,12 +68,12 @@ app.post('/mcp', express.json(), async (req: Request, res: Response): Promise<vo
 app.get('/mcp', async (req: Request, res: Response): Promise<void> => {
   if (!requireAdminKey(req, res)) return;
   try {
-    const server = createShopifyMcpServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-    });
-    await server.connect(transport);
-    await transport.handleRequest(req, res);
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !mcpTransports[sessionId]) {
+      res.status(400).json({ error: 'Invalid or missing session ID' });
+      return;
+    }
+    await mcpTransports[sessionId].handleRequest(req, res);
   } catch (err) {
     logger.error('MCP HTTP SSE error', err);
     if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
