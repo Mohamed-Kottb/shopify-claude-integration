@@ -22,9 +22,41 @@ dotenv.config();
 
 const app = express();
 
-// OAuth routes need query string parsing, not raw body
+// OAuth routes — must be before express.raw()
 app.get('/auth/install', handleInstall);
 app.get('/auth/callback', (req, res) => { void handleCallback(req, res); });
+
+// MCP over HTTP — must be before express.raw() so JSON body parses correctly
+// URL: https://shopify-claude-integration-production.up.railway.app/mcp?key=ADMIN_KEY
+app.post('/mcp', express.json(), async (req: Request, res: Response): Promise<void> => {
+  if (!requireAdminKey(req, res)) return;
+  try {
+    const server = createShopifyMcpServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body as Record<string, unknown>);
+  } catch (err) {
+    logger.error('MCP HTTP error', err);
+    if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
+  }
+});
+
+app.get('/mcp', async (req: Request, res: Response): Promise<void> => {
+  if (!requireAdminKey(req, res)) return;
+  try {
+    const server = createShopifyMcpServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
+  } catch (err) {
+    logger.error('MCP HTTP SSE error', err);
+    if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
+  }
+});
 
 app.use(express.raw({ type: 'application/json' }));
 
@@ -78,38 +110,6 @@ app.get('/admin/stores/:name/env', (req, res) => {
   const envPath = path.join(STORES_DIR, req.params['name'] ?? '', '.env');
   if (!fs.existsSync(envPath)) { res.status(404).send('Store not found'); return; }
   res.type('text/plain').send(fs.readFileSync(envPath, 'utf-8'));
-});
-
-// MCP over HTTP — for Claude desktop app "Add custom connector"
-// URL: https://shopify-claude-integration-production.up.railway.app/mcp?key=ADMIN_KEY
-app.post('/mcp', express.json(), async (req: Request, res: Response): Promise<void> => {
-  if (!requireAdminKey(req, res)) return;
-  try {
-    const server = createShopifyMcpServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-    });
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body as Record<string, unknown>);
-  } catch (err) {
-    logger.error('MCP HTTP error', err);
-    if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
-  }
-});
-
-app.get('/mcp', async (req: Request, res: Response): Promise<void> => {
-  if (!requireAdminKey(req, res)) return;
-  try {
-    const server = createShopifyMcpServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-    });
-    await server.connect(transport);
-    await transport.handleRequest(req, res);
-  } catch (err) {
-    logger.error('MCP HTTP SSE error', err);
-    if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
-  }
 });
 
 const PORT = Number(process.env.PORT ?? process.env.WEBHOOK_PORT ?? 3000);
