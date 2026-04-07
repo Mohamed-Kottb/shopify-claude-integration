@@ -38,6 +38,7 @@ export interface ShopifyProduct {
   vendor: string;
   product_type: string;
   status: string;
+  tags: string;
   variants: ShopifyVariant[];
   images: ShopifyImage[];
 }

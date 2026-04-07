@@ -9,6 +9,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { loadStore, listStores } from '../core/storeLoader';
+import type { ShopifyVariant, ShopifyImage } from '../core/types';
 import { getOrders, getOrderCount } from '../shopify/orders';
 import { getProducts, updateProduct, createProduct, deleteProduct } from '../shopify/products';
 import { getCustomers, searchCustomers, updateCustomer } from '../shopify/customers';
@@ -122,14 +123,43 @@ export function createShopifyMcpServer(): Server {
       },
       {
         name: 'create_product',
-        description: 'Create a new product (draft status)',
+        description: 'Create a new product with full details. Status defaults to draft.',
         inputSchema: {
           type: 'object',
           properties: {
             store: { type: 'string', description: 'Store name' },
             title: { type: 'string', description: 'Product title' },
+            body_html: { type: 'string', description: 'Product description (HTML allowed)' },
+            vendor: { type: 'string', description: 'Brand / vendor name' },
+            product_type: { type: 'string', description: 'Product type/category' },
+            tags: { type: 'string', description: 'Comma-separated tags' },
+            status: { type: 'string', enum: ['active', 'draft', 'archived'], description: 'Status (default: draft)' },
+            variants: {
+              type: 'array',
+              description: 'Variants array. Each variant can have price, sku, inventory_quantity, etc.',
+              items: { type: 'object' },
+            },
+            images: {
+              type: 'array',
+              description: 'Images array with src URLs. e.g. [{ "src": "https://..." }]',
+              items: { type: 'object' },
+            },
           },
           required: ['store', 'title'],
+        },
+      },
+      {
+        name: 'add_product_image',
+        description: 'Add an image to an existing product from a public URL',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            store: { type: 'string', description: 'Store name' },
+            product_id: { type: 'number', description: 'Shopify product ID' },
+            src: { type: 'string', description: 'Public image URL' },
+            alt: { type: 'string', description: 'Alt text (optional)' },
+          },
+          required: ['store', 'product_id', 'src'],
         },
       },
       {
@@ -391,8 +421,29 @@ export function createShopifyMcpServer(): Server {
         }
         case 'create_product': {
           const config = loadStore(str(args, 'store'));
-          const product = await createProduct(config, { title: str(args, 'title'), status: 'draft' });
-          return text(`Product created: ${product.title} (ID: ${product.id}) — status: draft`);
+          const product = await createProduct(config, {
+            title: str(args, 'title'),
+            body_html: args['body_html'] as string | undefined,
+            vendor: args['vendor'] as string | undefined,
+            product_type: args['product_type'] as string | undefined,
+            tags: args['tags'] as string | undefined,
+            status: (args['status'] as string | undefined) ?? 'draft',
+            variants: args['variants'] as ShopifyVariant[] | undefined,
+            images: args['images'] as ShopifyImage[] | undefined,
+          });
+          return text(`Product created: ${product.title} (ID: ${product.id}) — status: ${product.status}`);
+        }
+        case 'add_product_image': {
+          const config = loadStore(str(args, 'store'));
+          const { rest } = (await import('../shopify/client.js')).createShopifyClient(config);
+          const { DataType } = await import('@shopify/shopify-api');
+          const response = await rest.post({
+            path: `products/${num(args, 'product_id')}/images`,
+            data: { image: { src: str(args, 'src'), alt: args['alt'] as string | undefined } },
+            type: DataType.JSON,
+          });
+          const img = (response.body as { image: { id: number; src: string } }).image;
+          return text(`Image added to product ${num(args, 'product_id')} — image ID: ${img.id}\n${img.src}`);
         }
         case 'delete_product': {
           const config = loadStore(str(args, 'store'));
