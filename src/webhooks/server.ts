@@ -52,6 +52,7 @@ app.post('/mcp', express.json(), async (req: Request, res: Response): Promise<vo
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (id) => { mcpTransports[id] = transport; },
+      enableJsonResponse: true,   // plain JSON responses — avoids SSE timeout issues on Railway CDN
     });
     transport.onclose = () => {
       if (transport.sessionId) delete mcpTransports[transport.sessionId];
@@ -70,7 +71,8 @@ app.get('/mcp', async (req: Request, res: Response): Promise<void> => {
   try {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     if (!sessionId || !mcpTransports[sessionId]) {
-      res.status(400).json({ error: 'Invalid or missing session ID' });
+      // MCP spec: 404 for unknown/expired sessions — client should POST initialize to start a new session
+      res.status(404).json({ error: 'Session not found. POST /mcp with an initialize request to start a new session.' });
       return;
     }
     await mcpTransports[sessionId].handleRequest(req, res);
