@@ -7,9 +7,9 @@
  *   npm run upload -- <store> product <title> <image-path>
  *
  * Examples:
- *   npm run upload -- torath image 9280564265128 ~/Desktop/product.jpg
- *   npm run upload -- torath images 9280564265128 ~/Desktop/img1.jpg ~/Desktop/img2.jpg
- *   npm run upload -- torath product "عطر جديد" ~/Desktop/new-product.jpg
+ *   npm run upload -- <store> image <product-id> ~/Desktop/product.jpg
+ *   npm run upload -- <store> images <product-id> ~/Desktop/img1.jpg ~/Desktop/img2.jpg
+ *   npm run upload -- <store> product "Product Title" ~/Desktop/new-product.jpg
  */
 
 import * as dotenv from 'dotenv';

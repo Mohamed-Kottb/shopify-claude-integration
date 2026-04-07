@@ -42,7 +42,7 @@ export function createShopifyMcpServer(): Server {
         inputSchema: {
           type: 'object',
           properties: {
-            store: { type: 'string', description: 'Store name (e.g. torath)' },
+            store: { type: 'string', description: 'Store name (folder name under stores/)' },
             limit: { type: 'number', description: 'Max orders to return (default 50)' },
             status: { type: 'string', enum: ['open', 'closed', 'cancelled', 'any'] },
           },
