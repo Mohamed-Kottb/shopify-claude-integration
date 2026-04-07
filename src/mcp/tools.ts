@@ -9,7 +9,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { loadStore, listStores } from '../core/storeLoader';
-import type { ShopifyVariant, ShopifyImage } from '../core/types';
+import type { ShopifyVariant, ShopifyImage, ShopifyProduct } from '../core/types';
 import { getOrders, getOrderCount } from '../shopify/orders';
 import { getProducts, updateProduct, createProduct, deleteProduct } from '../shopify/products';
 import { getCustomers, searchCustomers, updateCustomer } from '../shopify/customers';
@@ -160,6 +160,22 @@ export function createShopifyMcpServer(): Server {
             alt: { type: 'string', description: 'Alt text (optional)' },
           },
           required: ['store', 'product_id', 'src'],
+        },
+      },
+      {
+        name: 'bulk_create_products',
+        description: 'Create multiple products in one call. Each product object follows the same structure as create_product. Returns a summary of created products with IDs.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            store: { type: 'string', description: 'Store name' },
+            products: {
+              type: 'array',
+              description: 'Array of product objects. Each can have: title (required), body_html, vendor, product_type, tags, status, variants (array with price/sku/inventory_quantity), images (array with src URLs).',
+              items: { type: 'object' },
+            },
+          },
+          required: ['store', 'products'],
         },
       },
       {
@@ -444,6 +460,29 @@ export function createShopifyMcpServer(): Server {
           });
           const img = (response.body as { image: { id: number; src: string } }).image;
           return text(`Image added to product ${num(args, 'product_id')} — image ID: ${img.id}\n${img.src}`);
+        }
+        case 'bulk_create_products': {
+          const config = loadStore(str(args, 'store'));
+          const products = args['products'] as Array<Record<string, unknown>>;
+          if (!Array.isArray(products) || products.length === 0) {
+            throw new Error('products must be a non-empty array');
+          }
+          const results: Array<{ id: number; title: string; status: string }> = [];
+          const errors: string[] = [];
+          for (const p of products) {
+            try {
+              const created = await createProduct(config, p as Partial<ShopifyProduct>);
+              results.push({ id: created.id, title: created.title, status: created.status });
+            } catch (err) {
+              errors.push(`"${String(p['title'] ?? '?')}": ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
+          const summary = [
+            `Created ${results.length}/${products.length} products:`,
+            ...results.map(p => `  ✓ ${p.title} (ID: ${p.id}) — ${p.status}`),
+            ...(errors.length ? ['', `Errors (${errors.length}):`, ...errors.map(e => `  ✗ ${e}`)] : []),
+          ].join('\n');
+          return text(summary);
         }
         case 'delete_product': {
           const config = loadStore(str(args, 'store'));
