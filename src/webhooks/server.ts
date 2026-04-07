@@ -134,6 +134,14 @@ app.get('/admin/stores/:name/env', (req, res) => {
   res.type('text/plain').send(fs.readFileSync(envPath, 'utf-8'));
 });
 
+app.delete('/admin/stores/:name', (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+  const storePath = path.join(STORES_DIR, req.params['name'] ?? '');
+  if (!fs.existsSync(storePath)) { res.status(404).send('Store not found'); return; }
+  fs.rmSync(storePath, { recursive: true, force: true });
+  res.json({ deleted: req.params['name'] });
+});
+
 const PORT = Number(process.env.PORT ?? process.env.WEBHOOK_PORT ?? 3000);
 app.listen(PORT, () => {
   logger.success(`Webhook server listening on port ${PORT}`);

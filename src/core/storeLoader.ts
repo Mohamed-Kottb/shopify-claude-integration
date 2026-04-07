@@ -53,6 +53,10 @@ export function listStores(): string[] {
     .readdirSync(STORES_DIR)
     .filter(name => {
       const full = path.join(STORES_DIR, name);
-      return fs.statSync(full).isDirectory() && !name.startsWith('.');
+      return (
+        fs.statSync(full).isDirectory() &&
+        !name.startsWith('.') &&
+        fs.existsSync(path.join(full, '.env'))
+      );
     });
 }
