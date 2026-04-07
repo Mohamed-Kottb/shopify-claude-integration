@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Multi-store Shopify management system. Connects stores via OAuth, and exposes **23 MCP tools** so Claude has direct Shopify access in every session — no copy-paste, no API costs for analysis.
+Multi-store Shopify management system. Connects stores via OAuth, and exposes **27 MCP tools** so Claude has direct Shopify access in every session — no copy-paste, no API costs for analysis.
 
 **Two MCP modes:**
 - **stdio** — Claude Code CLI (registered in `~/.claude.json`)
@@ -62,7 +62,8 @@ src/
 │   ├── collections.ts    # Custom + smart collections CRUD
 │   ├── discounts.ts      # Price rules + discount code creation
 │   ├── inventory.ts      # Locations + inventory levels read/set
-│   └── fulfillments.ts   # Fulfill order / cancel order / refunds
+│   ├── fulfillments.ts   # Fulfill order / cancel order / refunds
+│   └── metafields.ts     # Product metafield get / set (create-or-update) / delete
 ├── auth/
 │   ├── oauth.ts          # OAuth install + callback — auto-registers webhooks on connect
 │   └── generate-link.ts  # CLI: generate install links (local only, no nonce)
@@ -71,20 +72,21 @@ src/
 │   └── upload.ts         # CLI uploader — base64 image upload + product creation
 ├── mcp/
 │   ├── server.ts         # stdio MCP server (Claude Code CLI)
-│   └── tools.ts          # Shared tool definitions — 23 tools, used by both modes
+│   └── tools.ts          # Shared tool definitions — 27 tools, used by both modes
 ├── webhooks/
 │   ├── server.ts         # Express server — OAuth + webhook listeners + admin API + HTTP MCP
 │   └── handlers.ts       # Per-event handlers (order, product, inventory, cart, checkout)
 └── index.ts              # Lists connected stores
 ```
 
-## MCP Tools (23 total)
+## MCP Tools (27 total)
 
 | Category | Tools |
 |----------|-------|
 | Store | `list_stores` |
 | Orders | `get_orders`, `cancel_order`, `fulfill_order`, `get_order_refunds` |
-| Products | `get_products`, `update_product`, `create_product`, `delete_product` |
+| Products | `get_products`, `update_product`, `create_product`, `delete_product`, `bulk_create_products`, `add_product_image` |
+| Metafields | `get_product_metafields`, `set_product_metafields` |
 | Collections | `get_collections`, `get_collection_products`, `create_collection` |
 | Customers | `get_customers`, `search_customers`, `update_customer` |
 | Discounts | `get_discounts`, `create_discount` |
@@ -169,6 +171,25 @@ SHOPIFY_API_KEY=
 SHOPIFY_API_SECRET=
 SHOPIFY_WEBHOOK_SECRET=
 ```
+
+## Skills
+
+Claude desktop personal skills that work with this MCP connector (in `~/.claude/skills/`):
+
+| Skill | Trigger |
+|-------|---------|
+| `shopify-product-manager` | Preparing/uploading product data, CSV conversion, variant expansion |
+| `shopify-theme-editor` | Editing Liquid files, CSS, JS in Shopify themes |
+| `shopify-cro` | Conversion rate analysis and optimization |
+| `shopify-analytics` | Revenue trends, cohort analysis, best sellers |
+| `shopify-customer-care` | Customer lookup, order history, issue resolution |
+
+Skills use MCP tools directly — no CSV export needed for product uploads.
+
+**Metafield types used in this store:**
+- `custom.*` — `single_line_text_field`, `list.single_line_text_field` (value = JSON array string)
+- `global.description_tag` / `global.title_tag` — `string` (SEO fields)
+- `shopify.occasion` / `shopify.season` — `list.metaobject_reference` (GID values, set via admin only)
 
 ## Phase 2 — Meta Integration
 
