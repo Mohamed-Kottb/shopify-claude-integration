@@ -20,7 +20,7 @@ import { getCollections, getCollectionProducts, createCollection } from '../shop
 import { getPriceRules, createDiscount } from '../shopify/discounts';
 import { getLocations, getInventoryLevels, setInventoryLevel } from '../shopify/inventory';
 import { cancelOrder, fulfillOrder, getRefunds } from '../shopify/fulfillments';
-import { getProductMetafields, setProductMetafields } from '../shopify/metafields';
+import { getProductMetafields, setProductMetafields, getMetafieldDefinitions } from '../shopify/metafields';
 
 export function createShopifyMcpServer(): Server {
   const server = new Server(
@@ -170,6 +170,22 @@ export function createShopifyMcpServer(): Server {
       },
 
       // ── Metafields ─────────────────────────────────────────────────────────
+      {
+        name: 'get_metafield_definitions',
+        description: 'Get all metafield definitions for a store (what custom fields are configured). Use this to discover what metafields exist before uploading products. owner_type defaults to product.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            store: { type: 'string', description: 'Store name' },
+            owner_type: {
+              type: 'string',
+              enum: ['product', 'variant', 'collection', 'customer', 'order'],
+              description: 'Resource type (default: product)',
+            },
+          },
+          required: ['store'],
+        },
+      },
       {
         name: 'get_product_metafields',
         description: 'Get all metafields for a product',
@@ -510,6 +526,15 @@ export function createShopifyMcpServer(): Server {
         }
 
         // ── Metafields ───────────────────────────────────────────────────────
+        case 'get_metafield_definitions': {
+          const config = loadStore(str(args, 'store'));
+          const ownerType = (args['owner_type'] as 'product' | 'variant' | 'collection' | 'customer' | 'order') ?? 'product';
+          const defs = await getMetafieldDefinitions(config, ownerType);
+          const summary = defs.map(d =>
+            `  • ${d.name} — ${d.namespace}.${d.key} (${d.type.name})${d.description ? ` — ${d.description}` : ''}`
+          ).join('\n');
+          return text(`${defs.length} metafield definition(s) for ${ownerType}:\n${summary}`);
+        }
         case 'get_product_metafields': {
           const config = loadStore(str(args, 'store'));
           const metafields = await getProductMetafields(config, num(args, 'product_id'));

@@ -53,6 +53,65 @@ export async function setProductMetafields(
   return results;
 }
 
+export interface MetafieldDefinition {
+  id: number;
+  name: string;
+  namespace: string;
+  key: string;
+  type: { name: string };
+  description: string | null;
+  owner_type: string;
+}
+
+const OWNER_TYPE_MAP: Record<string, string> = {
+  product: 'PRODUCT',
+  variant: 'PRODUCTVARIANT',
+  collection: 'COLLECTION',
+  customer: 'CUSTOMER',
+  order: 'ORDER',
+};
+
+export async function getMetafieldDefinitions(
+  config: StoreConfig,
+  ownerType: 'product' | 'variant' | 'collection' | 'customer' | 'order' = 'product'
+): Promise<MetafieldDefinition[]> {
+  const { graphql } = createShopifyClient(config);
+  const gqlOwnerType = OWNER_TYPE_MAP[ownerType] ?? 'PRODUCT';
+
+  const response = await graphql.query({
+    data: `{
+      metafieldDefinitions(ownerType: ${gqlOwnerType}, first: 250) {
+        nodes {
+          id
+          name
+          namespace
+          key
+          type { name }
+          description
+          ownerType
+        }
+      }
+    }`,
+  });
+
+  const body = response.body as unknown as {
+    data: { metafieldDefinitions: { nodes: Array<{
+      id: string; name: string; namespace: string; key: string;
+      type: { name: string }; description: string | null; ownerType: string;
+    }> } }
+  };
+
+  return body.data.metafieldDefinitions.nodes.map(n => ({
+    id: parseInt(n.id.split('/').pop() ?? '0'),
+    name: n.name,
+    namespace: n.namespace,
+    key: n.key,
+    type: n.type,
+    description: n.description,
+    owner_type: n.ownerType,
+  }));
+}
+
 export async function deleteProductMetafield(
   config: StoreConfig,
   productId: number,
