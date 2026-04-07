@@ -31,7 +31,7 @@ npm install
 ### 2. Create a Shopify Partner app
 1. Go to [partners.shopify.com](https://partners.shopify.com)
 2. Create an app → get **Client ID** and **Client Secret**
-3. Add redirect URL: `https://YOUR-SERVER-URL/auth/callback`
+3. Add redirect URL: `https://shopify-claude-integration-production.up.railway.app/auth/callback`
 4. Set distribution to **Custom**
 
 ### 3. Configure environment
@@ -42,7 +42,7 @@ Fill in `.env`:
 ```
 SHOPIFY_API_KEY=your_client_id
 SHOPIFY_API_SECRET=your_client_secret
-WEBHOOK_CALLBACK_URL=https://your-server-url.com
+WEBHOOK_CALLBACK_URL=https://shopify-claude-integration-production.up.railway.app
 ```
 
 ### 4. Start the server
