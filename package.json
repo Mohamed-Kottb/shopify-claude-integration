@@ -10,9 +10,11 @@
     "start": "node dist/webhooks/server.js",
     "stores:list": "ts-node -e \"const {listStores}=require('./src/core/storeLoader');console.log(listStores())\"",
     "install:store": "ts-node src/auth/generate-link.ts",
-    "upload": "ts-node src/cli/upload.ts"
+    "upload": "ts-node src/cli/upload.ts",
+    "mcp": "node dist/mcp/server.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@shopify/shopify-api": "^11.0.0",
     "dotenv": "^16.4.0",
     "express": "^4.21.0"
