@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   handleOrderCreate,
   handleProductUpdate,
@@ -11,6 +13,7 @@ import {
 } from './handlers';
 import { handleInstall, handleCallback } from '../auth/oauth';
 import { listStores } from '../core/storeLoader';
+import { createShopifyMcpServer } from '../mcp/tools';
 import { logger } from '../core/logger';
 
 const STORES_DIR = process.env.STORES_DIR ?? path.join(process.cwd(), 'stores');
@@ -75,6 +78,38 @@ app.get('/admin/stores/:name/env', (req, res) => {
   const envPath = path.join(STORES_DIR, req.params['name'] ?? '', '.env');
   if (!fs.existsSync(envPath)) { res.status(404).send('Store not found'); return; }
   res.type('text/plain').send(fs.readFileSync(envPath, 'utf-8'));
+});
+
+// MCP over HTTP — for Claude desktop app "Add custom connector"
+// URL: https://shopify-claude-integration-production.up.railway.app/mcp?key=ADMIN_KEY
+app.post('/mcp', express.json(), async (req: Request, res: Response): Promise<void> => {
+  if (!requireAdminKey(req, res)) return;
+  try {
+    const server = createShopifyMcpServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body as Record<string, unknown>);
+  } catch (err) {
+    logger.error('MCP HTTP error', err);
+    if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
+  }
+});
+
+app.get('/mcp', async (req: Request, res: Response): Promise<void> => {
+  if (!requireAdminKey(req, res)) return;
+  try {
+    const server = createShopifyMcpServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
+  } catch (err) {
+    logger.error('MCP HTTP SSE error', err);
+    if (!res.headersSent) res.status(500).json({ error: 'MCP server error' });
+  }
 });
 
 const PORT = Number(process.env.PORT ?? process.env.WEBHOOK_PORT ?? 3000);
