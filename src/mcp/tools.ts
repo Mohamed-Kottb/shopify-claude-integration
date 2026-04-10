@@ -459,7 +459,7 @@ export function createShopifyMcpServer(): Server {
 
         // ── Orders ───────────────────────────────────────────────────────────
         case 'get_orders': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const [orders, count] = await Promise.all([
             getOrders(config, (args['status'] as 'any') ?? 'any', num(args, 'limit', 50)),
             getOrderCount(config),
@@ -467,12 +467,12 @@ export function createShopifyMcpServer(): Server {
           return text(`Total orders: ${count}\n\n${JSON.stringify(orders, null, 2)}`);
         }
         case 'cancel_order': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const order = await cancelOrder(config, num(args, 'order_id'), args['reason'] as string | undefined);
           return text(`Order #${order.order_number} cancelled (ID: ${order.id})`);
         }
         case 'fulfill_order': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const fulfillment = await fulfillOrder(config, num(args, 'order_id'), {
             tracking_number: args['tracking_number'] as string | undefined,
             tracking_company: args['tracking_company'] as string | undefined,
@@ -481,24 +481,24 @@ export function createShopifyMcpServer(): Server {
           return text(`Fulfillment created (ID: ${fulfillment.id}) — status: ${fulfillment.status}`);
         }
         case 'get_order_refunds': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const refunds = await getRefunds(config, num(args, 'order_id'));
           return text(`${refunds.length} refund(s)\n\n${JSON.stringify(refunds, null, 2)}`);
         }
 
         // ── Products ─────────────────────────────────────────────────────────
         case 'get_products': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const products = await getProducts(config, num(args, 'limit', 50));
           return text(`Total products: ${products.length}\n\n${JSON.stringify(products, null, 2)}`);
         }
         case 'update_product': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const updated = await updateProduct(config, num(args, 'product_id'), args['data'] as Record<string, unknown>);
           return text(`Product updated: ${updated.title} (ID: ${updated.id})\n\n${JSON.stringify(updated, null, 2)}`);
         }
         case 'create_product': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const product = await createProduct(config, {
             title: str(args, 'title'),
             body_html: args['body_html'] as string | undefined,
@@ -513,7 +513,7 @@ export function createShopifyMcpServer(): Server {
           return text(`Product created: ${product.title} (ID: ${product.id}) — status: ${product.status}`);
         }
         case 'add_product_image': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const { rest } = (await import('../shopify/client.js')).createShopifyClient(config);
           const { DataType } = await import('@shopify/shopify-api');
           const response = await rest.post({
@@ -527,7 +527,7 @@ export function createShopifyMcpServer(): Server {
 
         // ── Metafields ───────────────────────────────────────────────────────
         case 'get_metafield_definitions': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const ownerType = (args['owner_type'] as 'product' | 'variant' | 'collection' | 'customer' | 'order') ?? 'product';
           const defs = await getMetafieldDefinitions(config, ownerType);
           const summary = defs.map(d =>
@@ -536,12 +536,12 @@ export function createShopifyMcpServer(): Server {
           return text(`${defs.length} metafield definition(s) for ${ownerType}:\n${summary}`);
         }
         case 'get_product_metafields': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const metafields = await getProductMetafields(config, num(args, 'product_id'));
           return text(`${metafields.length} metafield(s)\n\n${JSON.stringify(metafields, null, 2)}`);
         }
         case 'set_product_metafields': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const mfs = args['metafields'] as Array<{ namespace: string; key: string; value: string; type: string }>;
           if (!Array.isArray(mfs) || mfs.length === 0) throw new Error('metafields must be a non-empty array');
           const results = await setProductMetafields(config, num(args, 'product_id'), mfs);
@@ -551,7 +551,7 @@ export function createShopifyMcpServer(): Server {
           );
         }
         case 'bulk_create_products': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const products = args['products'] as Array<Record<string, unknown>>;
           if (!Array.isArray(products) || products.length === 0) {
             throw new Error('products must be a non-empty array');
@@ -574,24 +574,24 @@ export function createShopifyMcpServer(): Server {
           return text(summary);
         }
         case 'delete_product': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           await deleteProduct(config, num(args, 'product_id'));
           return text(`Product ${num(args, 'product_id')} deleted`);
         }
 
         // ── Collections ──────────────────────────────────────────────────────
         case 'get_collections': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const collections = await getCollections(config, num(args, 'limit', 50));
           return text(`${collections.length} collection(s)\n\n${JSON.stringify(collections, null, 2)}`);
         }
         case 'get_collection_products': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const products = await getCollectionProducts(config, num(args, 'collection_id'), num(args, 'limit', 50));
           return text(`${products.length} product(s)\n\n${JSON.stringify(products, null, 2)}`);
         }
         case 'create_collection': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const collection = await createCollection(config, {
             title: str(args, 'title'),
             body_html: args['body_html'] as string | undefined,
@@ -601,29 +601,29 @@ export function createShopifyMcpServer(): Server {
 
         // ── Customers ────────────────────────────────────────────────────────
         case 'get_customers': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const customers = await getCustomers(config, num(args, 'limit', 50));
           return text(`Total customers: ${customers.length}\n\n${JSON.stringify(customers, null, 2)}`);
         }
         case 'search_customers': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const customers = await searchCustomers(config, str(args, 'query'));
           return text(`Found ${customers.length} customer(s)\n\n${JSON.stringify(customers, null, 2)}`);
         }
         case 'update_customer': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const updated = await updateCustomer(config, num(args, 'customer_id'), args['data'] as Record<string, unknown>);
           return text(`Customer updated: ${updated.first_name} ${updated.last_name} (ID: ${updated.id})`);
         }
 
         // ── Discounts ────────────────────────────────────────────────────────
         case 'get_discounts': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const rules = await getPriceRules(config, num(args, 'limit', 50));
           return text(`${rules.length} price rule(s)\n\n${JSON.stringify(rules, null, 2)}`);
         }
         case 'create_discount': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const result = await createDiscount(config, {
             title: str(args, 'title'),
             code: str(args, 'code'),
@@ -643,12 +643,12 @@ export function createShopifyMcpServer(): Server {
 
         // ── Inventory ────────────────────────────────────────────────────────
         case 'get_locations': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const locations = await getLocations(config);
           return text(`${locations.length} location(s)\n\n${JSON.stringify(locations, null, 2)}`);
         }
         case 'get_inventory': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const levels = await getInventoryLevels(
             config,
             args['location_id'] as number | undefined,
@@ -657,7 +657,7 @@ export function createShopifyMcpServer(): Server {
           return text(`${levels.length} inventory level(s)\n\n${JSON.stringify(levels, null, 2)}`);
         }
         case 'set_inventory': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const level = await setInventoryLevel(
             config,
             num(args, 'inventory_item_id'),
@@ -669,7 +669,7 @@ export function createShopifyMcpServer(): Server {
 
         // ── Analytics ────────────────────────────────────────────────────────
         case 'get_analytics': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const [orders, products, customers, count] = await Promise.all([
             getOrders(config, 'any', 50),
             getProducts(config, 50),
@@ -684,12 +684,12 @@ export function createShopifyMcpServer(): Server {
 
         // ── Store settings ───────────────────────────────────────────────────
         case 'get_themes': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const [themes, active] = await Promise.all([getThemes(config), getActiveTheme(config)]);
           return text(`Active theme: ${active?.name ?? 'unknown'}\n\n${JSON.stringify(themes, null, 2)}`);
         }
         case 'get_webhooks': {
-          const config = loadStore(str(args, 'store'));
+          const config = await loadStore(str(args, 'store'));
           const webhooks = await listWebhooks(config);
           return text(`${webhooks.length} webhook(s) registered\n\n${JSON.stringify(webhooks, null, 2)}`);
         }

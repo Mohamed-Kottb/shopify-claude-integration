@@ -40,7 +40,7 @@ Commands:
 }
 
 async function run(): Promise<void> {
-  const config = loadStore(storeName);
+  const config = await loadStore(storeName);
 
   switch (command) {
 

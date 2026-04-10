@@ -183,7 +183,10 @@ app.get('/admin', (req, res) => {
 
     <div class="card">
       <h2>Connect a New Store</h2>
-      <p style="font-size:13px;color:#666;margin-bottom:16px;">Ask the store owner to go to their <strong>Shopify admin → Settings → Apps → Develop apps → Create an app</strong> → set scopes → install it → send you all 4 values from the app's API credentials page.</p>
+      <p style="font-size:13px;color:#666;margin-bottom:16px;">
+        <strong>Legacy apps (created before Jan 2026):</strong> Shopify admin → Settings → Apps → Develop apps → your app → API credentials. Send Client ID, Client secret, and Admin API access token.<br><br>
+        <strong>New Dev Dashboard apps (after Jan 2026):</strong> dev.shopify.com → your app → Client ID and Client secret only. Leave the access token blank — the system will fetch it automatically using the client credentials grant.
+      </p>
       <form method="POST" action="/admin/connect?key=${key}">
         <div class="form-row">
           <div>
@@ -196,16 +199,16 @@ app.get('/admin', (req, res) => {
           </div>
         </div>
         <div>
-          <label>Admin API access token <span style="color:#888;font-weight:400">(starts with shpat_)</span></label>
-          <input name="accessToken" placeholder="shpat_xxxxxxxxxxxx" required>
+          <label>Admin API access token <span style="color:#888;font-weight:400">(shpat_... — legacy apps only; leave blank for new Dev Dashboard apps)</span></label>
+          <input name="accessToken" placeholder="shpat_xxxxxxxxxxxx (optional)">
         </div>
         <div class="form-row">
           <div>
-            <label>Client ID <span style="color:#888;font-weight:400">(from their custom app)</span></label>
+            <label>Client ID <span style="color:#888;font-weight:400">(from their app)</span></label>
             <input name="apiKey" placeholder="Client ID" required>
           </div>
           <div>
-            <label>Client secret <span style="color:#888;font-weight:400">(from their custom app)</span></label>
+            <label>Client secret <span style="color:#888;font-weight:400">(from their app)</span></label>
             <input name="apiSecret" placeholder="Client secret" required>
           </div>
         </div>
@@ -225,20 +228,18 @@ app.post('/admin/connect', express.urlencoded({ extended: false }), express.json
   if (!requireAdminKey(req, res)) return;
   const { name, storeUrl, accessToken, apiKey, apiSecret } = req.body as Record<string, string>;
   const key = req.query['key'] as string;
-  if (!name || !storeUrl || !accessToken || !apiKey || !apiSecret) {
-    res.redirect(`/admin?key=${key}&err=All+fields+are+required`);
+  if (!name || !storeUrl || !apiKey || !apiSecret) {
+    res.redirect(`/admin?key=${key}&err=Store+name%2C+URL%2C+Client+ID+and+Client+secret+are+required`);
     return;
   }
   const storePath = path.join(STORES_DIR, name);
   fs.mkdirSync(storePath, { recursive: true });
-  const resolvedApiKey = apiKey;
-  const resolvedApiSecret = apiSecret;
   const envContent = [
     `SHOPIFY_STORE_URL=${storeUrl}`,
-    `SHOPIFY_ACCESS_TOKEN=${accessToken}`,
-    `SHOPIFY_API_KEY=${resolvedApiKey}`,
-    `SHOPIFY_API_SECRET=${resolvedApiSecret}`,
-  ].join('\n') + '\n';
+    accessToken ? `SHOPIFY_ACCESS_TOKEN=${accessToken}` : '',
+    `SHOPIFY_API_KEY=${apiKey}`,
+    `SHOPIFY_API_SECRET=${apiSecret}`,
+  ].filter(Boolean).join('\n') + '\n';
   fs.writeFileSync(path.join(storePath, '.env'), envContent);
   res.redirect(`/admin?key=${key}&ok=${name}`);
 });
@@ -290,8 +291,8 @@ app.post('/admin/stores/:name/connect', express.json(), (req, res) => {
   const { storeUrl, accessToken, apiKey, apiSecret, webhookSecret } = req.body as {
     storeUrl?: string; accessToken?: string; apiKey?: string; apiSecret?: string; webhookSecret?: string;
   };
-  if (!storeUrl || !accessToken || !apiKey || !apiSecret) {
-    res.status(400).json({ error: 'Required: storeUrl, accessToken, apiKey, apiSecret' });
+  if (!storeUrl || !apiKey || !apiSecret) {
+    res.status(400).json({ error: 'Required: storeUrl, apiKey, apiSecret. accessToken is optional for Dev Dashboard apps.' });
     return;
   }
   const storePath = path.join(STORES_DIR, name);

@@ -152,7 +152,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
   // Auto-register webhooks pointing to this server
   try {
     const storeName = shop.replace('.myshopify.com', '');
-    const storeConfig = loadStore(storeName);
+    const storeConfig = await loadStore(storeName);
     const callbackBase = process.env.WEBHOOK_CALLBACK_URL ?? '';
     const registered = await registerWebhooks(storeConfig, callbackBase);
     logger.success(`Registered ${registered.length} webhooks for ${storeName}`);
