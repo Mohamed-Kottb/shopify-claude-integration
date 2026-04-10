@@ -183,6 +183,7 @@ app.get('/admin', (req, res) => {
 
     <div class="card">
       <h2>Connect a New Store</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:16px;">Ask the store owner to go to <strong>Settings → Apps → Develop apps → Create an app</strong>, install it, then send you the <strong>Admin API access token</strong> (starts with shpat_).</p>
       <form method="POST" action="/admin/connect?key=${key}">
         <div class="form-row">
           <div>
@@ -197,16 +198,6 @@ app.get('/admin', (req, res) => {
         <div>
           <label>Admin API access token</label>
           <input name="accessToken" placeholder="shpat_xxxxxxxxxxxx" required>
-        </div>
-        <div class="form-row">
-          <div>
-            <label>API key</label>
-            <input name="apiKey" placeholder="API key from the app" required>
-          </div>
-          <div>
-            <label>API secret key</label>
-            <input name="apiSecret" placeholder="API secret key" required>
-          </div>
         </div>
         <div>
           <button type="submit" class="btn-primary">Connect Store</button>
@@ -224,17 +215,20 @@ app.post('/admin/connect', express.urlencoded({ extended: false }), express.json
   if (!requireAdminKey(req, res)) return;
   const { name, storeUrl, accessToken, apiKey, apiSecret } = req.body as Record<string, string>;
   const key = req.query['key'] as string;
-  if (!name || !storeUrl || !accessToken || !apiKey || !apiSecret) {
-    res.redirect(`/admin?key=${key}&err=All+fields+are+required`);
+  if (!name || !storeUrl || !accessToken) {
+    res.redirect(`/admin?key=${key}&err=Store+name,+URL+and+access+token+are+required`);
     return;
   }
   const storePath = path.join(STORES_DIR, name);
   fs.mkdirSync(storePath, { recursive: true });
+  // Use provided API key/secret, or fall back to Railway global partner app credentials
+  const resolvedApiKey = apiKey || process.env.SHOPIFY_API_KEY || '';
+  const resolvedApiSecret = apiSecret || process.env.SHOPIFY_API_SECRET || '';
   const envContent = [
     `SHOPIFY_STORE_URL=${storeUrl}`,
     `SHOPIFY_ACCESS_TOKEN=${accessToken}`,
-    `SHOPIFY_API_KEY=${apiKey}`,
-    `SHOPIFY_API_SECRET=${apiSecret}`,
+    `SHOPIFY_API_KEY=${resolvedApiKey}`,
+    `SHOPIFY_API_SECRET=${resolvedApiSecret}`,
   ].join('\n') + '\n';
   fs.writeFileSync(path.join(storePath, '.env'), envContent);
   res.redirect(`/admin?key=${key}&ok=${name}`);
