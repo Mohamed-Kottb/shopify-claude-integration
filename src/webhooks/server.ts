@@ -267,6 +267,20 @@ app.get('/admin/stores', (_req, res) => {
   res.json({ stores: listStores() });
 });
 
+// Test store connection — loads credentials and attempts token resolution
+// GET /admin/stores/:name/test?key=ADMIN_KEY
+app.get('/admin/stores/:name/test', async (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+  const name = req.params['name'] ?? '';
+  try {
+    const { loadStore } = await import('../core/storeLoader.js');
+    const config = await loadStore(name);
+    res.json({ ok: true, store: name, storeUrl: config.storeUrl, tokenPrefix: config.accessToken.slice(0, 8) + '...' });
+  } catch (err) {
+    res.status(400).json({ ok: false, store: name, error: String(err) });
+  }
+});
+
 app.get('/admin/stores/:name/env', (req, res) => {
   if (!requireAdminKey(req, res)) return;
   const envPath = path.join(STORES_DIR, req.params['name'] ?? '', '.env');
