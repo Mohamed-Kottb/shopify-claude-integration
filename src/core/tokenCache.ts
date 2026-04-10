@@ -20,7 +20,8 @@ async function fetchClientCredentialsToken(
   apiKey: string,
   apiSecret: string,
 ): Promise<CachedToken> {
-  const url = `${storeUrl}/admin/oauth/access_token`;
+  const base = storeUrl.startsWith('http') ? storeUrl : `https://${storeUrl}`;
+  const url = `${base}/admin/oauth/access_token`;
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
