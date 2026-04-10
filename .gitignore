@@ -4,6 +4,7 @@ dist/
 *.js.map
 .DS_Store
 **/.DS_Store
+.claude/
 
 # Ignore all real store folders — only store-template is committed
 stores/*/

@@ -22,7 +22,7 @@ Shopify Store → credentials saved to Railway volume → Claude has 27 Shopify 
 
 ### 1. Clone and install
 ```bash
-git clone https://github.com/Mohamed-Kottb/shopify-claude-integration
+git clone https://github.com/YOUR_USERNAME/shopify-claude-integration
 cd shopify-claude-integration
 npm install
 ```

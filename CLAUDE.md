@@ -11,7 +11,7 @@ Multi-store Shopify management system. Connects stores via OAuth or manual crede
 - **HTTP** — Claude desktop app connector (POST `/mcp?key=ADMIN_KEY` on Railway)
 
 **Deployed:** Railway (permanent server, auto-deploys on push)
-**GitHub:** `https://github.com/Mohamed-Kottb/shopify-claude-integration`
+**GitHub:** `https://github.com/YOUR_USERNAME/shopify-claude-integration`
 
 Meta integration is Phase 2 (stubs in `webhooks/handlers.ts`).
 
@@ -185,7 +185,7 @@ Per-store credentials (Client ID + Secret for each store's own app) go in the **
 ## Per-store .env format
 
 ```
-SHOPIFY_STORE_URL=k21going.myshopify.com        # with or without https://
+SHOPIFY_STORE_URL=my-store.myshopify.com        # with or without https://
 SHOPIFY_ACCESS_TOKEN=shpat_xxx                  # optional — legacy apps only
 SHOPIFY_API_KEY=your_client_id                  # required
 SHOPIFY_API_SECRET=your_client_secret           # required

@@ -30,7 +30,7 @@ app.get('/auth/install', handleInstall);
 app.get('/auth/callback', (req, res) => { void handleCallback(req, res); });
 
 // MCP over HTTP — must be before express.raw() so JSON body parses correctly
-// URL: https://shopify-claude-integration-production.up.railway.app/mcp?key=ADMIN_KEY
+// URL: https://your-railway-url.up.railway.app/mcp?key=ADMIN_KEY
 app.post('/mcp', express.json(), async (req: Request, res: Response): Promise<void> => {
   if (!requireAdminKey(req, res)) return;
   try {
@@ -191,11 +191,11 @@ app.get('/admin', (req, res) => {
         <div class="form-row">
           <div>
             <label>Store name (your label)</label>
-            <input name="name" placeholder="artify-walls" required>
+            <input name="name" placeholder="my-store" required>
           </div>
           <div>
             <label>Store URL</label>
-            <input name="storeUrl" placeholder="https://zvm0hg-mh.myshopify.com" required>
+            <input name="storeUrl" placeholder="https://my-store.myshopify.com" required>
           </div>
         </div>
         <div>
