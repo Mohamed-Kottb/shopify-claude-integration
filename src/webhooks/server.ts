@@ -183,7 +183,7 @@ app.get('/admin', (req, res) => {
 
     <div class="card">
       <h2>Connect a New Store</h2>
-      <p style="font-size:13px;color:#666;margin-bottom:16px;">Ask the store owner to go to <strong>Settings → Apps → Develop apps → Create an app</strong>, install it, then send you the <strong>Admin API access token</strong> (starts with shpat_).</p>
+      <p style="font-size:13px;color:#666;margin-bottom:16px;">Ask the store owner to go to their <strong>Shopify admin → Settings → Apps → Develop apps → Create an app</strong> → set scopes → install it → send you all 4 values from the app's API credentials page.</p>
       <form method="POST" action="/admin/connect?key=${key}">
         <div class="form-row">
           <div>
@@ -196,8 +196,18 @@ app.get('/admin', (req, res) => {
           </div>
         </div>
         <div>
-          <label>Admin API access token</label>
+          <label>Admin API access token <span style="color:#888;font-weight:400">(starts with shpat_)</span></label>
           <input name="accessToken" placeholder="shpat_xxxxxxxxxxxx" required>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Client ID <span style="color:#888;font-weight:400">(from their custom app)</span></label>
+            <input name="apiKey" placeholder="Client ID" required>
+          </div>
+          <div>
+            <label>Client secret <span style="color:#888;font-weight:400">(from their custom app)</span></label>
+            <input name="apiSecret" placeholder="Client secret" required>
+          </div>
         </div>
         <div>
           <button type="submit" class="btn-primary">Connect Store</button>
@@ -215,15 +225,14 @@ app.post('/admin/connect', express.urlencoded({ extended: false }), express.json
   if (!requireAdminKey(req, res)) return;
   const { name, storeUrl, accessToken, apiKey, apiSecret } = req.body as Record<string, string>;
   const key = req.query['key'] as string;
-  if (!name || !storeUrl || !accessToken) {
-    res.redirect(`/admin?key=${key}&err=Store+name,+URL+and+access+token+are+required`);
+  if (!name || !storeUrl || !accessToken || !apiKey || !apiSecret) {
+    res.redirect(`/admin?key=${key}&err=All+fields+are+required`);
     return;
   }
   const storePath = path.join(STORES_DIR, name);
   fs.mkdirSync(storePath, { recursive: true });
-  // Use provided API key/secret, or fall back to Railway global partner app credentials
-  const resolvedApiKey = apiKey || process.env.SHOPIFY_API_KEY || '';
-  const resolvedApiSecret = apiSecret || process.env.SHOPIFY_API_SECRET || '';
+  const resolvedApiKey = apiKey;
+  const resolvedApiSecret = apiSecret;
   const envContent = [
     `SHOPIFY_STORE_URL=${storeUrl}`,
     `SHOPIFY_ACCESS_TOKEN=${accessToken}`,
