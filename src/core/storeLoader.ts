@@ -14,7 +14,7 @@ export function loadStore(storeName: string): StoreConfig {
     throw new Error(`Store "${storeName}" not found in stores/`);
   }
 
-  dotenv.config({ path: path.join(storePath, '.env') });
+  dotenv.config({ path: path.join(storePath, '.env'), override: true });
 
   const configPath = path.join(storePath, 'config.json');
   const fileConfig: Partial<StoreConfig> = fs.existsSync(configPath)

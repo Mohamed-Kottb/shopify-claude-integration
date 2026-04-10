@@ -116,6 +116,140 @@ app.post('/webhooks/checkouts-create',        handler(handleCheckoutCreate));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
+// Admin UI — store management dashboard
+app.get('/admin', (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+  const stores = listStores();
+  const key = req.query['key'] as string;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopify Claude — Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f6f6f7; color: #1a1a2e; }
+    .header { background: #1a1a2e; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 12px; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .badge { background: #5c6ac4; color: white; font-size: 11px; padding: 2px 8px; border-radius: 12px; }
+    .container { max-width: 900px; margin: 32px auto; padding: 0 24px; }
+    .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1a1a2e; }
+    .stores-grid { display: grid; gap: 10px; }
+    .store-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f6f6f7; border-radius: 8px; }
+    .store-name { font-weight: 500; font-size: 15px; }
+    .store-actions { display: flex; gap: 8px; }
+    .btn { padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; text-decoration: none; }
+    .btn-danger { background: #fef0f0; color: #d72c0d; }
+    .btn-danger:hover { background: #ffd7d5; }
+    .empty { color: #666; font-size: 14px; }
+    form { display: grid; gap: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    label { font-size: 13px; font-weight: 500; color: #444; display: block; margin-bottom: 4px; }
+    input { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    input:focus { outline: none; border-color: #5c6ac4; box-shadow: 0 0 0 2px rgba(92,106,196,0.15); }
+    .btn-primary { background: #5c6ac4; color: white; padding: 10px 20px; font-size: 14px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; }
+    .btn-primary:hover { background: #4959bd; }
+    .msg { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
+    .msg.ok { background: #e3f1df; color: #1b6b2f; }
+    .msg.err { background: #fef0f0; color: #d72c0d; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Shopify Claude Integration</h1>
+    <span class="badge">${stores.length} stores</span>
+  </div>
+  <div class="container">
+    ${req.query['ok'] ? `<div class="msg ok">✓ Store "${req.query['ok']}" connected successfully.</div>` : ''}
+    ${req.query['deleted'] ? `<div class="msg ok">✓ Store "${req.query['deleted']}" removed.</div>` : ''}
+    ${req.query['err'] ? `<div class="msg err">✗ ${req.query['err']}</div>` : ''}
+
+    <div class="card">
+      <h2>Connected Stores</h2>
+      <div class="stores-grid">
+        ${stores.length === 0 ? '<p class="empty">No stores connected yet.</p>' : stores.map(s => `
+        <div class="store-row">
+          <span class="store-name">🏪 ${s}</span>
+          <div class="store-actions">
+            <form method="POST" action="/admin/stores/${s}/delete?key=${key}" onsubmit="return confirm('Remove ${s}?')">
+              <button type="submit" class="btn btn-danger">Remove</button>
+            </form>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Connect a New Store</h2>
+      <form method="POST" action="/admin/connect?key=${key}">
+        <div class="form-row">
+          <div>
+            <label>Store name (your label)</label>
+            <input name="name" placeholder="artify-walls" required>
+          </div>
+          <div>
+            <label>Store URL</label>
+            <input name="storeUrl" placeholder="https://zvm0hg-mh.myshopify.com" required>
+          </div>
+        </div>
+        <div>
+          <label>Admin API access token</label>
+          <input name="accessToken" placeholder="shpat_xxxxxxxxxxxx" required>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>API key</label>
+            <input name="apiKey" placeholder="API key from the app" required>
+          </div>
+          <div>
+            <label>API secret key</label>
+            <input name="apiSecret" placeholder="API secret key" required>
+          </div>
+        </div>
+        <div>
+          <button type="submit" class="btn-primary">Connect Store</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>`;
+  res.type('html').send(html);
+});
+
+// Handle form submission from admin UI
+app.post('/admin/connect', express.urlencoded({ extended: false }), express.json(), (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+  const { name, storeUrl, accessToken, apiKey, apiSecret } = req.body as Record<string, string>;
+  const key = req.query['key'] as string;
+  if (!name || !storeUrl || !accessToken || !apiKey || !apiSecret) {
+    res.redirect(`/admin?key=${key}&err=All+fields+are+required`);
+    return;
+  }
+  const storePath = path.join(STORES_DIR, name);
+  fs.mkdirSync(storePath, { recursive: true });
+  const envContent = [
+    `SHOPIFY_STORE_URL=${storeUrl}`,
+    `SHOPIFY_ACCESS_TOKEN=${accessToken}`,
+    `SHOPIFY_API_KEY=${apiKey}`,
+    `SHOPIFY_API_SECRET=${apiSecret}`,
+  ].join('\n') + '\n';
+  fs.writeFileSync(path.join(storePath, '.env'), envContent);
+  res.redirect(`/admin?key=${key}&ok=${name}`);
+});
+
+// Handle store removal from admin UI
+app.post('/admin/stores/:name/delete', (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+  const name = req.params['name'] ?? '';
+  const key = req.query['key'] as string;
+  const storePath = path.join(STORES_DIR, name);
+  if (fs.existsSync(storePath)) fs.rmSync(storePath, { recursive: true, force: true });
+  res.redirect(`/admin?key=${key}&deleted=${name}`);
+});
+
 // Admin endpoints — protected by ADMIN_KEY env var
 function requireAdminKey(req: Request, res: Response): boolean {
   const adminKey = process.env.ADMIN_KEY;
@@ -142,6 +276,48 @@ app.delete('/admin/stores/:name', (req, res) => {
   if (!fs.existsSync(storePath)) { res.status(404).send('Store not found'); return; }
   fs.rmSync(storePath, { recursive: true, force: true });
   res.json({ deleted: req.params['name'] });
+});
+
+// Manually connect a store by providing credentials directly (no OAuth needed)
+// POST /admin/stores/:name/connect?key=ADMIN_KEY
+// Body: { storeUrl, accessToken, apiKey, apiSecret, webhookSecret? }
+app.post('/admin/stores/:name/connect', express.json(), (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+  const name = req.params['name'] ?? '';
+  const { storeUrl, accessToken, apiKey, apiSecret, webhookSecret } = req.body as {
+    storeUrl?: string; accessToken?: string; apiKey?: string; apiSecret?: string; webhookSecret?: string;
+  };
+  if (!storeUrl || !accessToken || !apiKey || !apiSecret) {
+    res.status(400).json({ error: 'Required: storeUrl, accessToken, apiKey, apiSecret' });
+    return;
+  }
+  const storePath = path.join(STORES_DIR, name);
+  fs.mkdirSync(storePath, { recursive: true });
+  const envContent = [
+    `SHOPIFY_STORE_URL=${storeUrl}`,
+    `SHOPIFY_ACCESS_TOKEN=${accessToken}`,
+    `SHOPIFY_API_KEY=${apiKey}`,
+    `SHOPIFY_API_SECRET=${apiSecret}`,
+    webhookSecret ? `SHOPIFY_WEBHOOK_SECRET=${webhookSecret}` : '',
+  ].filter(Boolean).join('\n') + '\n';
+  fs.writeFileSync(path.join(storePath, '.env'), envContent);
+  res.json({ connected: name, storeUrl });
+});
+
+// Rename a store
+// POST /admin/stores/:name/rename?key=ADMIN_KEY
+// Body: { newName }
+app.post('/admin/stores/:name/rename', express.json(), (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+  const oldName = req.params['name'] ?? '';
+  const { newName } = req.body as { newName?: string };
+  if (!newName) { res.status(400).json({ error: 'Required: newName' }); return; }
+  const oldPath = path.join(STORES_DIR, oldName);
+  const newPath = path.join(STORES_DIR, newName);
+  if (!fs.existsSync(oldPath)) { res.status(404).send('Store not found'); return; }
+  if (fs.existsSync(newPath)) { res.status(409).json({ error: `Store "${newName}" already exists` }); return; }
+  fs.renameSync(oldPath, newPath);
+  res.json({ renamed: { from: oldName, to: newName } });
 });
 
 const PORT = Number(process.env.PORT ?? process.env.WEBHOOK_PORT ?? 3000);
