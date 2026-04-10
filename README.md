@@ -1,15 +1,15 @@
 # Shopify Claude Integration
 
-Connect multiple Shopify stores to Claude. Manage products, orders, customers, collections, discounts, inventory, and more — directly from Claude via MCP tools. No API costs for analysis.
+Connect multiple Shopify stores to Claude. Manage products, orders, customers, collections, discounts, inventory, and more — directly from Claude via MCP tools.
 
-Built with Node.js + TypeScript. Deployed on Railway. Uses Shopify OAuth for secure multi-store access.
+Built with Node.js + TypeScript. Deployed on Railway. Supports both legacy custom apps (permanent tokens) and new Dev Dashboard apps (auto-refreshing 24h tokens via client credentials grant).
 
 ---
 
 ## How it works
 
 ```
-Shopify Store → OAuth install (Railway) → Credentials saved → Claude has 28 Shopify tools
+Shopify Store → credentials saved to Railway volume → Claude has 27 Shopify tools
 ```
 
 **Two ways to use:**
@@ -22,53 +22,51 @@ Shopify Store → OAuth install (Railway) → Credentials saved → Claude has 2
 
 ### 1. Clone and install
 ```bash
-git clone https://github.com/YOUR_USERNAME/shopify-claude-integration
+git clone https://github.com/Mohamed-Kottb/shopify-claude-integration
 cd shopify-claude-integration
 npm install
 ```
 
-### 2. Create a Shopify Partner app
-1. Go to [partners.shopify.com](https://partners.shopify.com)
-2. Create an app → get **Client ID** and **Client Secret**
-3. Add redirect URL: `https://YOUR-RAILWAY-URL.up.railway.app/auth/callback`
-4. Set distribution to **Custom** (or Public for multi-merchant)
-
-### 3. Deploy to Railway
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
+### 2. Deploy to Railway
 
 1. Fork this repo → connect to Railway → **New Project → Deploy from GitHub**
 2. Set environment variables:
    ```
-   SHOPIFY_API_KEY=your_client_id
-   SHOPIFY_API_SECRET=your_client_secret
    WEBHOOK_CALLBACK_URL=https://your-railway-url.up.railway.app
    ADMIN_KEY=choose_a_secret_key
    ```
 3. Add a **Volume** mounted at `/data/stores`, set `STORES_DIR=/data/stores`
 4. Deploy — your permanent URL is live
 
-### 4. Connect a store
+> `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` are only needed if you use the OAuth flow (your own Partner app). For manually connected client stores, they're not required.
 
-Open in your browser:
+### 3. Connect a store
+
+#### New Dev Dashboard app (post-Jan 2026) — no permanent token needed
+
+Ask the store owner to:
+1. Go to **dev.shopify.com** → Create app → set scopes → Install on their store
+2. Send you: Store URL + Client ID + Client secret
+
+Then open the admin UI:
 ```
-https://your-railway-url.up.railway.app/auth/install?shop=storename.myshopify.com
+https://your-railway-url.up.railway.app/admin?key=YOUR_ADMIN_KEY
 ```
+Fill in the form (leave Admin API access token blank). The system fetches tokens automatically.
 
-Store owner authorizes → credentials saved to Railway volume → webhooks auto-registered.
+#### Legacy custom app (created before Jan 2026)
 
-Pull credentials to your local machine:
-```bash
-curl "https://your-railway-url.up.railway.app/admin/stores/<name>/env?key=YOUR_ADMIN_KEY" \
-  > stores/<name>/.env
+Store owner goes to **Shopify admin → Settings → Apps → Develop apps → their app → API credentials** and sends you all 4 values (Client ID, Client secret, Admin API access token, Store URL).
+
+Fill in the admin UI form with all 4 fields.
+
+#### Verify connection
 ```
-
-Verify:
-```bash
-npm run fetch -- <name> orders
+GET https://your-railway-url.up.railway.app/admin/stores/<name>/test?key=YOUR_ADMIN_KEY
 ```
+Returns `{ "ok": true, "tokenPrefix": "shpca_..." }` when working.
 
-### 5. Set up MCP (Claude Code CLI)
+### 4. Set up MCP (Claude Code CLI)
 
 ```bash
 npm run build
@@ -77,16 +75,18 @@ claude mcp add shopify node "$(pwd)/dist/mcp/server.js" -e "STORES_DIR=$(pwd)/st
 
 Restart Claude Code. Claude now has direct Shopify tools in every session.
 
-### 6. Set up connector (Claude desktop app)
+### 5. Set up connector (Claude desktop app)
 
 In Claude desktop → **Customize → Connectors → Add custom connector**:
 ```
 https://your-railway-url.up.railway.app/mcp?key=YOUR_ADMIN_KEY
 ```
 
+> After Railway redeploys (e.g. after a code push), disconnect and reconnect the connector to reset the MCP session.
+
 ---
 
-## Available MCP Tools (28)
+## Available MCP Tools (27)
 
 | Category | Tool | Description |
 |----------|------|-------------|
@@ -95,7 +95,7 @@ https://your-railway-url.up.railway.app/mcp?key=YOUR_ADMIN_KEY
 | | `cancel_order` | Cancel an order |
 | | `fulfill_order` | Create a fulfillment with optional tracking |
 | | `get_order_refunds` | View refunds for an order |
-| Products | `get_products` | List products |
+| Products | `get_products` | List products (GraphQL) |
 | | `update_product` | Update title, price, status, tags, variants, etc. |
 | | `create_product` | Create a new product (draft) |
 | | `bulk_create_products` | Create multiple products in one call |
@@ -111,11 +111,11 @@ https://your-railway-url.up.railway.app/mcp?key=YOUR_ADMIN_KEY
 | | `search_customers` | Search by name, email, or phone |
 | | `update_customer` | Update tags, notes, marketing preferences |
 | Discounts | `get_discounts` | List all price rules |
-| | `create_discount` | Create a discount code (price rule + code in one step) |
+| | `create_discount` | Create a discount code |
 | Inventory | `get_locations` | List warehouse/store locations |
-| | `get_inventory` | Get inventory levels (filter by location) |
+| | `get_inventory` | Get inventory levels |
 | | `set_inventory` | Set quantity at a specific location |
-| Analytics | `get_analytics` | Orders + products + customers summary in one call |
+| Analytics | `get_analytics` | Orders + products + customers summary |
 | Settings | `get_themes` | List themes, show active theme |
 | | `get_webhooks` | List registered webhooks |
 
@@ -125,7 +125,7 @@ https://your-railway-url.up.railway.app/mcp?key=YOUR_ADMIN_KEY
 
 ```bash
 npm run fetch -- <store> orders          # Recent orders
-npm run fetch -- <store> products        # Products + inventory
+npm run fetch -- <store> products        # Products
 npm run fetch -- <store> customers       # Customer list
 npm run fetch -- <store> analytics       # Combined summary
 npm run fetch -- <store> themes          # Theme list
@@ -146,38 +146,29 @@ npm run build                            # Compile TypeScript → dist/
 All endpoints require `?key=YOUR_ADMIN_KEY`.
 
 ```
+GET    /admin                             # Admin UI dashboard
 GET    /admin/stores                      # List connected stores
-GET    /admin/stores/<name>/env           # Download store credentials to local
-DELETE /admin/stores/<name>              # Remove a store
-POST   /admin/stores/<name>/connect      # Manually connect a store (no OAuth needed)
-POST   /admin/stores/<name>/rename       # Rename a store
-GET    /health                           # Health check
+GET    /admin/stores/<name>/env           # Download store credentials
+GET    /admin/stores/<name>/test          # Test token resolution (diagnose auth issues)
+DELETE /admin/stores/<name>               # Remove a store
+POST   /admin/stores/<name>/connect       # Connect a store via JSON body
+POST   /admin/stores/<name>/rename        # Rename a store
+GET    /health                            # Health check
 ```
 
-### Connect a store without OAuth
-
-If you already have a Shopify access token (from a custom app), POST it directly:
+### Connect a store via REST (no UI)
 
 ```bash
 curl -X POST "https://your-railway-url.up.railway.app/admin/stores/my-store/connect?key=YOUR_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "storeUrl": "https://my-store.myshopify.com",
-    "accessToken": "shpat_xxxx",
-    "apiKey": "your_api_key",
-    "apiSecret": "your_api_secret"
+    "storeUrl": "my-store.myshopify.com",
+    "apiKey": "client_id",
+    "apiSecret": "client_secret"
   }'
 ```
 
-The store is immediately available to all MCP tools — no OAuth flow, no store owner action needed.
-
-### Rename a store
-
-```bash
-curl -X POST "https://your-railway-url.up.railway.app/admin/stores/old-name/rename?key=YOUR_ADMIN_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "newName": "new-name" }'
-```
+`accessToken` is optional — omit it for Dev Dashboard apps (token fetched automatically).
 
 ---
 
@@ -185,51 +176,67 @@ curl -X POST "https://your-railway-url.up.railway.app/admin/stores/old-name/rena
 
 ```
 src/
-├── core/          # Types, logger, store loader
-├── shopify/       # Products, orders, customers, collections,
-│                  # discounts, inventory, fulfillments, themes, images, webhooks
+├── core/          # Types, logger, store loader (async), token cache
+├── shopify/       # Products (GraphQL), orders, customers, collections,
+│                  # discounts, inventory, fulfillments, themes, images, webhooks, metafields
 ├── auth/          # OAuth install + callback
 ├── cli/           # fetch.ts + upload.ts (run locally)
-├── mcp/           # server.ts (stdio) + tools.ts (28 shared tools)
+├── mcp/           # server.ts (stdio) + tools.ts (27 shared tools)
 └── webhooks/      # Express server + event handlers
 
 stores/
 └── <store-name>/
     ├── .env        # Credentials — never committed, Railway volume only
     └── config.json # Per-store settings (optional)
+
+skills/
+├── shopify-product-uploader/SKILL.md
+└── shopify-product-manager/SKILL.md
 ```
 
 **Key patterns:**
-- Store credentials isolated per folder, loaded via `dotenv.config({ path })`
-- `config.json` is optional — stores connected via OAuth work without it
-- All Shopify REST POST/PUT use `DataType.JSON` from `@shopify/shopify-api`
+- Store credentials isolated per folder — `storeLoader.ts` uses `dotenv.parse()` so stores never share env vars
+- `SHOPIFY_ACCESS_TOKEN` is optional — if absent, system uses client credentials grant (Dev Dashboard apps)
+- Token cache: 24h client credentials tokens cached in memory, refreshed 5 min before expiry
+- Products use GraphQL (`productCreate`, `productUpdate`, `productDelete`, `products` query) — REST products API deprecated by Shopify
 - Webhook server responds `200 OK` immediately, processes async (Shopify 5s limit)
-- MCP HTTP uses `enableJsonResponse: true` — plain JSON, no SSE, reliable on Railway CDN
-- Only store folders with a `.env` file are listed as connected
+- MCP HTTP uses `enableJsonResponse: true` — plain JSON, reliable on Railway CDN
 
 ---
 
 ## Environment Variables
 
-| Variable | Where | Description |
-|----------|-------|-------------|
-| `SHOPIFY_API_KEY` | Railway + local `.env` | Shopify Partner app Client ID |
-| `SHOPIFY_API_SECRET` | Railway + local `.env` | Shopify Partner app Client Secret |
-| `WEBHOOK_CALLBACK_URL` | Railway + local `.env` | Your Railway URL |
-| `ADMIN_KEY` | Railway | Protects admin + MCP endpoints |
-| `STORES_DIR` | Railway | Path to stores volume (`/data/stores`) |
-| `PORT` / `WEBHOOK_PORT` | Railway | Server port (Railway sets `PORT` automatically) |
+### Railway Variables (global)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_KEY` | Yes | Protects admin + MCP endpoints |
+| `STORES_DIR` | Yes | Path to stores volume (`/data/stores`) |
+| `WEBHOOK_CALLBACK_URL` | Yes | Your Railway URL |
+| `SHOPIFY_API_KEY` | OAuth only | Partner app Client ID |
+| `SHOPIFY_API_SECRET` | OAuth only | Partner app Client Secret |
+| `PORT` / `WEBHOOK_PORT` | No | Server port (Railway sets `PORT` automatically) |
+
+### Per-store `.env` (in Railway volume)
+
+```
+SHOPIFY_STORE_URL=my-store.myshopify.com
+SHOPIFY_API_KEY=client_id_from_their_app
+SHOPIFY_API_SECRET=client_secret_from_their_app
+SHOPIFY_ACCESS_TOKEN=shpat_xxx   # optional — legacy apps only
+SHOPIFY_WEBHOOK_SECRET=          # optional
+```
 
 ---
 
 ## Claude Skills
 
-The `skills/` folder contains Claude desktop skills that work on top of the MCP connector:
+The `skills/` folder contains Claude desktop skills:
 
 | Skill | What it does |
 |-------|-------------|
-| `shopify-product-uploader` | Add a single product through conversation — asks you the questions, then calls the MCP tools |
-| `shopify-product-manager` | Transform Excel/CSV files into Shopify-ready import CSVs, or upload directly via MCP |
+| `shopify-product-uploader` | Add a single product through conversation |
+| `shopify-product-manager` | Transform Excel/CSV files into Shopify-ready imports, or upload directly via MCP |
 
 See [`skills/README.md`](skills/README.md) for installation instructions.
 
